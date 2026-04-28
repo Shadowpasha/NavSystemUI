@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Ros, Topic } from 'roslib';
-import { Activity, Radio, Navigation2, Map as MapIcon, Settings, Compass, Target } from 'lucide-react';
+import { Activity, Radio, Navigation2, Map as MapIcon, Settings, Compass, Target, Box, Layers } from 'lucide-react';
 import MapCanvas from './components/MapCanvas';
+import Map3DCanvas from './components/Map3DCanvas';
 import styled from 'styled-components';
 import './App.css';
 
@@ -252,6 +253,40 @@ const MainView = styled.div`
   justify-content: stretch;
 `;
 
+const FloatingWindow = styled.div`
+  position: absolute;
+  bottom: 2rem;
+  right: 2rem;
+  width: 36rem;
+  height: 24rem;
+  background-color: #0f172a;
+  border-radius: 2rem;
+  border: 3px solid #2563eb;
+  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    transform: scale(1.01);
+    border-color: #60a5fa;
+  }
+`;
+
+const FloatingHeader = styled.div`
+  background-color: rgba(37, 99, 235, 0.1);
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #60a5fa;
+  border-bottom: 1px solid rgba(37, 99, 235, 0.2);
+`;
+
 // --- Component ---
 
 function App() {
@@ -263,6 +298,10 @@ function App() {
   const [odom, setOdom] = useState(null);
   const [scan, setScan] = useState(null);
   const [path, setPath] = useState(null);
+  const [octomap, setOctomap] = useState(null);
+  const [pointCloud, setPointCloud] = useState(null);
+  const [octomapCount, setOctomapCount] = useState(0);
+  const [showOctomap, setShowOctomap] = useState(true);
   const [markers, setMarkers] = useState(null);
   const [dimensions, setDimensions] = useState({ width: 1000, height: 1000 });
   const [subGoal, setSubGoal] = useState(null);
@@ -365,6 +404,34 @@ function App() {
       });
       navStatusSub.subscribe((message) => {
         setNavStatus(message.data);
+      });
+
+      const octomapSub = new Topic({
+        ros: newRos,
+        name: '/orbslam/octomap',
+        messageType: 'octomap_msgs/Octomap'
+      });
+      octomapSub.subscribe((message) => {
+        setOctomapCount(prev => prev + 1);
+        setOctomap(message);
+        if (octomapCount % 10 === 0) {
+            console.log('Octomap Message:', {
+                id: message.id,
+                resolution: message.resolution,
+                binary: message.binary,
+                dataLength: message.data?.length
+            });
+        }
+      });
+
+      const pointCloudSub = new Topic({
+        ros: newRos,
+        name: '/scan_matched_points2',
+        messageType: 'sensor_msgs/PointCloud2'
+      });
+      pointCloudSub.subscribe((message) => {
+        // Basic PointCloud2 parsing (simplified for visualization)
+        setPointCloud(message);
       });
     });
 
@@ -471,6 +538,17 @@ function App() {
               <Activity size={16} color="#94a3b8" />
               Telemetry
             </CardTitle>
+            <Button 
+              style={{ 
+                padding: '0.4rem 0.8rem', 
+                fontSize: '0.7rem',
+                background: showOctomap ? '#2563eb' : '#334155',
+                borderRadius: '0.5rem'
+              }}
+              onClick={() => setShowOctomap(!showOctomap)}
+            >
+              {showOctomap ? 'HIDE 3D' : 'SHOW 3D'}
+            </Button>
           </CardHeader>
 
           <TelemetryGrid>
@@ -530,6 +608,25 @@ function App() {
           width={dimensions.width}
           height={dimensions.height}
         />
+
+        {showOctomap && (
+          <FloatingWindow>
+            <FloatingHeader>
+              <Box size={14} />
+              OCTOMAP 3D LIVE
+            </FloatingHeader>
+            <div style={{ flexGrow: 1, position: 'relative' }}>
+              <Map3DCanvas 
+                octomapData={octomap || map} 
+                pointCloud={pointCloud}
+                odom={odom}
+                width={576} 
+                height={336}
+                debugInfo={{ count: octomapCount, type: octomap ? 'OCTOMAP' : 'MAP' }}
+              />
+            </div>
+          </FloatingWindow>
+        )}
       </MainView>
     </AppContainer>
   );

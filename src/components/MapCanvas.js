@@ -16,7 +16,7 @@ const CanvasWrapper = styled.div`
 `;
 
 const StyledCanvas = styled.canvas`
-  cursor: ${props => props.isPanning ? 'grab' : 'crosshair'};
+  cursor: ${props => props.isPanning ? 'grab' : 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><line x1="10" y1="0" x2="10" y2="20" stroke="black" stroke-width="2"/><line x1="0" y1="10" x2="20" y2="10" stroke="black" stroke-width="2"/></svg>\') 10 10, crosshair'};
   display: block;
 `;
 
@@ -63,19 +63,19 @@ const ControlsOverlay = styled.div`
   line-height: 1.5;
 `;
 
-const MapCanvas = ({ 
-  mapData, 
-  odom, 
-  scan, 
-  path, 
+const MapCanvas = ({
+  mapData,
+  odom,
+  scan,
+  path,
   markers,
   subGoal,
   onGoalSelect,
   width = 800,
-  height = 800 
+  height = 800
 }) => {
   const canvasRef = useRef(null);
-  
+
   // Goal dragging state
   const [goalPreview, setGoalPreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -92,10 +92,10 @@ const MapCanvas = ({
     OCCUPIED: '#000000',
     UNKNOWN: '#708090',
     INFLATION: 'rgba(239, 68, 68, 0.15)',
-    ROBOT: '#ffffff',
+    ROBOT: '#cbd5e1',
     PATH: '#10b981',
     SCAN: '#ef4444',
-    GOAL: '#f59e0b'
+    GOAL: '#000000'
   };
 
   // Initialize pan to center map once map loads
@@ -171,18 +171,18 @@ const MapCanvas = ({
     const currentScale = baseScale * zoom;
 
     const toCanvasX = (wx) => {
-        const gx = (wx - origin.position.x) / resolution;
-        return gx * currentScale + pan.x;
+      const gx = (wx - origin.position.x) / resolution;
+      return gx * currentScale + pan.x;
     };
     const toCanvasY = (wy) => {
-        const gy = (wy - origin.position.y) / resolution;
-        return height - (gy * currentScale + pan.y);
+      const gy = (wy - origin.position.y) / resolution;
+      return height - (gy * currentScale + pan.y);
     };
 
     // Draw 1-Meter Grid
     const minWx = (0 - pan.x) / currentScale * resolution + origin.position.x;
     const maxWx = (width - pan.x) / currentScale * resolution + origin.position.x;
-    
+
     // minWy occurs at cy = height, maxWy occurs at cy = 0
     const minWy = (height - height - pan.y) / currentScale * resolution + origin.position.y;
     const maxWy = (height - 0 - pan.y) / currentScale * resolution + origin.position.y;
@@ -209,26 +209,26 @@ const MapCanvas = ({
 
     const imageData = ctx.createImageData(mWidth, mHeight);
     for (let i = 0; i < data.length; i++) {
-        const val = data[i];
-        const idx = i * 4;
+      const val = data[i];
+      const idx = i * 4;
 
-        if (val === -1) {
-            imageData.data[idx] = 112;
-            imageData.data[idx+1] = 128;
-            imageData.data[idx+2] = 144;
-            imageData.data[idx+3] = 255;
-        } else if (val >= 0 && val <= 100) {
-            const intensity = 255 - Math.floor((val / 100.0) * 255);
-            imageData.data[idx] = intensity;
-            imageData.data[idx+1] = intensity;
-            imageData.data[idx+2] = intensity;
-            imageData.data[idx+3] = 255;
-        } else {
-            imageData.data[idx] = 0;
-            imageData.data[idx+1] = 0;
-            imageData.data[idx+2] = 0;
-            imageData.data[idx+3] = 0;
-        }
+      if (val === -1) {
+        imageData.data[idx] = 112;
+        imageData.data[idx + 1] = 128;
+        imageData.data[idx + 2] = 144;
+        imageData.data[idx + 3] = 255;
+      } else if (val >= 0 && val <= 100) {
+        const intensity = 255 - Math.floor((val / 100.0) * 255);
+        imageData.data[idx] = intensity;
+        imageData.data[idx + 1] = intensity;
+        imageData.data[idx + 2] = intensity;
+        imageData.data[idx + 3] = 255;
+      } else {
+        imageData.data[idx] = 0;
+        imageData.data[idx + 1] = 0;
+        imageData.data[idx + 2] = 0;
+        imageData.data[idx + 3] = 0;
+      }
     }
 
     const tempCanvas = document.createElement('canvas');
@@ -262,13 +262,13 @@ const MapCanvas = ({
         ctx.beginPath();
         const r = 4 * currentScale * 0.1;
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        
-        const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, r*0.1, cx, cy, r);
+
+        const grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r);
         grad.addColorStop(0, '#60a5fa');
         grad.addColorStop(1, '#1e3a8a');
         ctx.fillStyle = grad;
         ctx.fill();
-        
+
         ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 1;
         ctx.stroke();
@@ -278,9 +278,9 @@ const MapCanvas = ({
     if (subGoal) {
       const cx = toCanvasX(subGoal.x);
       const cy = toCanvasY(subGoal.y);
-      
+
       const r = 8 * currentScale * 0.1;
-      
+
       // Outer glow
       ctx.beginPath();
       ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
@@ -290,13 +290,13 @@ const MapCanvas = ({
       // Shiny red sphere
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      
-      const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, r*0.1, cx, cy, r);
+
+      const grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r);
       grad.addColorStop(0, '#fca5a5');
       grad.addColorStop(1, '#b91c1c');
       ctx.fillStyle = grad;
       ctx.fill();
-      
+
       ctx.strokeStyle = '#450a0a';
       ctx.lineWidth = 1.5;
       ctx.stroke();
@@ -334,70 +334,70 @@ const MapCanvas = ({
     }
 
     if (odom) {
-        const rx = toCanvasX(odom.x);
-        const ry = toCanvasY(odom.y);
-        
-        ctx.save();
-        ctx.translate(rx, ry);
-        ctx.rotate(-odom.yaw);
+      const rx = toCanvasX(odom.x);
+      const ry = toCanvasY(odom.y);
 
-        ctx.fillStyle = '#0f172a';
-        const wheelL = (0.2 / resolution) * currentScale;
-        const wheelW = (0.04 / resolution) * currentScale;
-        
-        const drawWheel = (wx, wy) => {
-            const cx = (wx / resolution) * currentScale;
-            const cy = (-wy / resolution) * currentScale; 
-            ctx.fillRect(cx - wheelL/2, cy - wheelW/2, wheelL, wheelW);
-        };
-        
-        drawWheel(-0.33, 0.29);
-        drawWheel(-0.33, -0.29);
-        drawWheel(0.0, 0.298);
-        drawWheel(0.0, -0.298);
+      ctx.save();
+      ctx.translate(rx, ry);
+      ctx.rotate(-odom.yaw);
 
-        ctx.fillStyle = COLORS.ROBOT;
-        const rw = (0.6 / resolution) * currentScale;
-        const rh = (0.48 / resolution) * currentScale;
-        const bx = (-0.16 / resolution) * currentScale;
-        ctx.fillRect(bx - rw/2, -rh/2, rw, rh);
+      ctx.fillStyle = '#0f172a';
+      const wheelL = (0.2 / resolution) * currentScale;
+      const wheelW = (0.04 / resolution) * currentScale;
 
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = Math.max(1, 3 * (currentScale / resolution) * 0.01);
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo((0.6 / resolution) * currentScale / 2 + Math.max(2, 5 * (currentScale / resolution) * 0.01), 0);
-        ctx.stroke();
-        
-        ctx.restore();
+      const drawWheel = (wx, wy) => {
+        const cx = (wx / resolution) * currentScale;
+        const cy = (-wy / resolution) * currentScale;
+        ctx.fillRect(cx - wheelL / 2, cy - wheelW / 2, wheelL, wheelW);
+      };
+
+      drawWheel(-0.33, 0.29);
+      drawWheel(-0.33, -0.29);
+      drawWheel(0.0, 0.298);
+      drawWheel(0.0, -0.298);
+
+      ctx.fillStyle = COLORS.ROBOT;
+      const rw = (0.6 / resolution) * currentScale;
+      const rh = (0.48 / resolution) * currentScale;
+      const bx = (-0.16 / resolution) * currentScale;
+      ctx.fillRect(bx - rw / 2, -rh / 2, rw, rh);
+
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = Math.max(1, 4 * (currentScale / resolution) * 0.01);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo((0.6 / resolution) * currentScale / 2 + Math.max(2, 5 * (currentScale / resolution) * 0.01), 0);
+      ctx.stroke();
+
+      ctx.restore();
     }
 
     if (goalPreview) {
-        const gx = toCanvasX(goalPreview.x);
-        const gy = toCanvasY(goalPreview.y);
+      const gx = toCanvasX(goalPreview.x);
+      const gy = toCanvasY(goalPreview.y);
 
-        ctx.save();
-        ctx.translate(gx, gy);
-        ctx.rotate(-goalPreview.yaw);
+      ctx.save();
+      ctx.translate(gx, gy);
+      ctx.rotate(-goalPreview.yaw);
 
-        ctx.strokeStyle = COLORS.GOAL;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(-10, -10);
-        ctx.lineTo(10, 10);
-        ctx.moveTo(10, -10);
-        ctx.lineTo(-10, 10);
-        ctx.stroke();
+      ctx.strokeStyle = COLORS.GOAL;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-10, -10);
+      ctx.lineTo(10, 10);
+      ctx.moveTo(10, -10);
+      ctx.lineTo(-10, 10);
+      ctx.stroke();
 
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(30, 0);
-        ctx.lineTo(20, -5);
-        ctx.moveTo(30, 0);
-        ctx.lineTo(20, 5);
-        ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(30, 0);
+      ctx.lineTo(20, -5);
+      ctx.moveTo(30, 0);
+      ctx.lineTo(20, 5);
+      ctx.stroke();
 
-        ctx.restore();
+      ctx.restore();
     }
 
   }, [mapData, odom, scan, path, markers, subGoal, goalPreview, pan, zoom, width, height, COLORS.PATH, COLORS.SCAN, COLORS.ROBOT, COLORS.GOAL, COLORS.INFLATION]);
@@ -420,7 +420,7 @@ const MapCanvas = ({
       // Left click -> Goal
       const { info } = mapData;
       const { resolution, width: mWidth, height: mHeight, origin } = info;
-      
+
       const baseScale = Math.min(width / mWidth, height / mHeight);
       const currentScale = baseScale * zoom;
 
@@ -456,7 +456,7 @@ const MapCanvas = ({
 
       const dx = cx - dragStart.cx;
       const dy = cy - dragStart.cy;
-      
+
       // Calculate angle
       const yaw = Math.atan2(-dy, dx);
       setGoalPreview({ ...goalPreview, yaw });
@@ -468,7 +468,7 @@ const MapCanvas = ({
       setIsPanning(false);
       setPanStart(null);
     }
-    
+
     if (isDragging && goalPreview) {
       onGoalSelect(goalPreview);
       setIsDragging(false);
@@ -498,8 +498,8 @@ const MapCanvas = ({
         LIVE MAP
       </StatusOverlay>
       <ControlsOverlay>
-        LEFT CLICK: Set Goal<br/>
-        RIGHT CLICK: Pan Map<br/>
+        LEFT CLICK: Set Goal<br />
+        RIGHT CLICK: Pan Map<br />
         SCROLL: Zoom Map
       </ControlsOverlay>
     </CanvasWrapper>
