@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Ros, Topic } from 'roslib';
-import { Activity, Radio, Navigation2, Map as MapIcon, Settings, Compass, Target, Box, Layers } from 'lucide-react';
+import { Activity, Radio, Navigation2, Map as MapIcon, Settings, Compass, Target, Box, Layers, Maximize2, Minimize2, X } from 'lucide-react';
 import MapCanvas from './components/MapCanvas';
 import Map3DCanvas from './components/Map3DCanvas';
 import styled from 'styled-components';
@@ -255,24 +255,23 @@ const MainView = styled.div`
 
 const FloatingWindow = styled.div`
   position: absolute;
-  bottom: 2rem;
-  right: 2rem;
-  width: 36rem;
-  height: 24rem;
+  bottom: ${props => props.isMaximized ? '0' : '2rem'};
+  right: ${props => props.isMaximized ? '0' : '2rem'};
+  width: ${props => props.isMaximized ? '100%' : '600px'};
+  height: ${props => props.isMaximized ? '100%' : '380px'};
   background-color: #0f172a;
-  border-radius: 2rem;
-  border: 3px solid #2563eb;
-  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.6);
+  border-radius: ${props => props.isMaximized ? '0' : '1.5rem'};
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   overflow: hidden;
+  border: ${props => props.isMaximized ? 'none' : '1px solid rgba(255, 255, 255, 0.1)'};
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  z-index: 10;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    transform: scale(1.01);
-    border-color: #60a5fa;
-  }
+  transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              right 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 `;
 
 const FloatingHeader = styled.div`
@@ -305,6 +304,8 @@ function App() {
   const [markers, setMarkers] = useState(null);
   const [dimensions, setDimensions] = useState({ width: 1000, height: 1000 });
   const [subGoal, setSubGoal] = useState(null);
+  const [cameraPoses, setCameraPoses] = useState(null);
+  const [isMaximized, setIsMaximized] = useState(false);
   const [navStatus, setNavStatus] = useState("Offline");
 
   const goalPubRef = useRef(null);
@@ -424,14 +425,13 @@ function App() {
         }
       });
 
-      const pointCloudSub = new Topic({
+      const cameraPosesSub = new Topic({
         ros: newRos,
-        name: '/scan_matched_points2',
-        messageType: 'sensor_msgs/PointCloud2'
+        name: '/orbslam/camera_poses',
+        messageType: 'geometry_msgs/PoseArray'
       });
-      pointCloudSub.subscribe((message) => {
-        // Basic PointCloud2 parsing (simplified for visualization)
-        setPointCloud(message);
+      cameraPosesSub.subscribe((message) => {
+        setCameraPoses(message);
       });
     });
 
@@ -610,19 +610,31 @@ function App() {
         />
 
         {showOctomap && (
-          <FloatingWindow>
+          <FloatingWindow isMaximized={isMaximized}>
             <FloatingHeader>
-              <Box size={14} />
-              OCTOMAP 3D LIVE
+              <Box size={16} />
+              <span>3D SPATIAL MAPPING</span>
+              <div style={{ flexGrow: 1 }} />
+              <button 
+                onClick={() => setIsMaximized(!isMaximized)}
+                style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+              <button 
+                onClick={() => setShowOctomap(false)}
+                style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', display: 'flex', alignItems: 'center', marginLeft: '0.5rem' }}
+              >
+                <X size={16} />
+              </button>
             </FloatingHeader>
             <div style={{ flexGrow: 1, position: 'relative' }}>
               <Map3DCanvas 
-                octomapData={octomap || map} 
+                octomapData={octomap} 
+                cameraPoses={cameraPoses}
                 pointCloud={pointCloud}
                 odom={odom}
-                width={576} 
-                height={336}
-                debugInfo={{ count: octomapCount, type: octomap ? 'OCTOMAP' : 'MAP' }}
+                debugInfo={{ count: octomapCount, type: octomap ? 'OCTOMAP' : 'SEARCHING' }}
               />
             </div>
           </FloatingWindow>

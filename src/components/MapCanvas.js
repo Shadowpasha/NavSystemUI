@@ -49,7 +49,7 @@ const PulseIndicator = styled.div`
 const ControlsOverlay = styled.div`
   position: absolute;
   bottom: 1rem;
-  right: 1rem;
+  left: 1rem;
   background-color: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(4px);
   padding: 0.5rem 0.75rem;
