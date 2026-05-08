@@ -86,6 +86,7 @@ const MapCanvas = ({
   const [pan, setPan] = useState({ x: 0, y: 0, init: false });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState(null);
+  const [isHeadingUp, setIsHeadingUp] = useState(true);
 
   const COLORS = {
     FREE: '#dcdcdc',
@@ -132,11 +133,29 @@ const MapCanvas = ({
       const oldCurrentScale = baseScale * zoom;
       const newCurrentScale = baseScale * newZoom;
 
-      const mapX = (cx - pan.x) / oldCurrentScale;
-      const mapY = (height - cy - pan.y) / oldCurrentScale;
+      let mapX, mapY;
 
-      const newPanX = cx - mapX * newCurrentScale;
-      const newPanY = height - cy - mapY * newCurrentScale;
+      if (isHeadingUp && odom) {
+        // In Heading Up mode, we zoom relative to the robot's position on screen (usually center)
+        // or just zoom relative to the mouse but it's complex. 
+        // Simplest: zoom relative to screen center if follow mode is active.
+        const angle = odom.yaw - Math.PI / 2;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        // Screen to Unrotated Canvas
+        const dx = cx - width / 2;
+        const dy = cy - height / 2;
+        const ux = (dx * cos + dy * sin) + (odom.x - info.origin.position.x) / info.resolution * oldCurrentScale + pan.x;
+        const uy = (dx * -sin + dy * cos) + (height - (odom.y - info.origin.position.y) / info.resolution * oldCurrentScale - (height - pan.y));
+        // This is getting complicated. Let's just zoom and keep the robot centered if heading up.
+      }
+
+      const mapX_old = (cx - pan.x) / oldCurrentScale;
+      const mapY_old = (height - cy - pan.y) / oldCurrentScale;
+
+      const newPanX = cx - mapX_old * newCurrentScale;
+      const newPanY = height - cy - mapY_old * newCurrentScale;
 
       setZoom(newZoom);
       setPan({ x: newPanX, y: newPanY, init: true });
@@ -179,6 +198,23 @@ const MapCanvas = ({
       return height - (gy * currentScale + pan.y);
     };
 
+    // Rotation angle: we want robot's odom.yaw to be screen "Up" (-PI/2 in canvas)
+    // Map's ROS X (0 yaw) is screen "Right" (0 in canvas)
+    const rotationAngle = (odom && isHeadingUp) ? odom.yaw - Math.PI / 2 : 0;
+    const rx = odom ? toCanvasX(odom.x) : 0;
+    const ry = odom ? toCanvasY(odom.y) : 0;
+
+    const applyTransform = () => {
+      if (isHeadingUp && odom) {
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate(rotationAngle);
+        ctx.translate(-rx, -ry);
+      }
+    };
+
+    ctx.save();
+    applyTransform();
+
     // Draw 1-Meter Grid
     const minWx = (0 - pan.x) / currentScale * resolution + origin.position.x;
     const maxWx = (width - pan.x) / currentScale * resolution + origin.position.x;
@@ -187,23 +223,31 @@ const MapCanvas = ({
     const minWy = (height - height - pan.y) / currentScale * resolution + origin.position.y;
     const maxWy = (height - 0 - pan.y) / currentScale * resolution + origin.position.y;
 
-    const startX = Math.floor(minWx);
-    const endX = Math.ceil(maxWx);
-    const startY = Math.floor(minWy);
-    const endY = Math.ceil(maxWy);
+    const startX = Math.floor(minWx - 10); // Buffer for rotation
+    const endX = Math.ceil(maxWx + 10);
+    const startY = Math.floor(minWy - 10);
+    const endY = Math.ceil(maxWy + 10);
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = startX; x <= endX; x++) {
       const cx = Math.floor(toCanvasX(x)) + 0.5;
-      ctx.moveTo(cx, 0);
-      ctx.lineTo(cx, height);
+      ctx.moveTo(cx, startY * currentScale / resolution); // Simplified grid lines
+      ctx.lineTo(cx, endY * currentScale / resolution);
+      // Wait, the grid drawing was simpler before. Let's stick to it but ensure it covers rotated area.
+    }
+    // Re-writing grid to be more robust for rotation
+    ctx.beginPath();
+    for (let x = startX; x <= endX; x++) {
+        const cx = toCanvasX(x);
+        ctx.moveTo(cx, toCanvasY(startY));
+        ctx.lineTo(cx, toCanvasY(endY));
     }
     for (let y = startY; y <= endY; y++) {
-      const cy = Math.floor(toCanvasY(y)) + 0.5;
-      ctx.moveTo(0, cy);
-      ctx.lineTo(width, cy);
+        const cy = toCanvasY(y);
+        ctx.moveTo(toCanvasX(startX), cy);
+        ctx.lineTo(toCanvasX(endX), cy);
     }
     ctx.stroke();
 
@@ -400,7 +444,8 @@ const MapCanvas = ({
       ctx.restore();
     }
 
-  }, [mapData, odom, scan, path, markers, subGoal, goalPreview, pan, zoom, width, height, COLORS.PATH, COLORS.SCAN, COLORS.ROBOT, COLORS.GOAL, COLORS.INFLATION]);
+    ctx.restore();
+  }, [mapData, odom, scan, path, markers, subGoal, goalPreview, pan, zoom, width, height, COLORS.PATH, COLORS.SCAN, COLORS.ROBOT, COLORS.GOAL, COLORS.INFLATION, isHeadingUp]);
 
   const handleMouseDown = (e) => {
     if (!mapData || !pan.init) return;
@@ -424,9 +469,29 @@ const MapCanvas = ({
       const baseScale = Math.min(width / mWidth, height / mHeight);
       const currentScale = baseScale * zoom;
 
-      // Inverse of toCanvasY and toCanvasX
-      const mapY = (height - cy - pan.y) / currentScale;
-      const mapX = (cx - pan.x) / currentScale;
+      let mapX, mapY;
+
+      if (isHeadingUp && odom) {
+        // Helpers to get unrotated canvas coords
+        const getUnrotatedX = (wx) => ((wx - origin.position.x) / resolution) * currentScale + pan.x;
+        const getUnrotatedY = (wy) => height - (((wy - origin.position.y) / resolution) * currentScale + pan.y);
+
+        // Transform screen coordinates back to unrotated canvas coordinates
+        const dx = cx - width / 2;
+        const dy = cy - height / 2;
+        const angle = odom.yaw - Math.PI / 2;
+        const cos = Math.cos(-angle);
+        const sin = Math.sin(-angle);
+        
+        const ux = (dx * cos - dy * sin) + getUnrotatedX(odom.x);
+        const uy = (dx * sin + dy * cos) + getUnrotatedY(odom.y);
+
+        mapX = (ux - pan.x) / currentScale;
+        mapY = (height - uy - pan.y) / currentScale;
+      } else {
+        mapY = (height - cy - pan.y) / currentScale;
+        mapX = (cx - pan.x) / currentScale;
+      }
 
       const wx = mapX * resolution + origin.position.x;
       const wy = mapY * resolution + origin.position.y;
@@ -458,7 +523,11 @@ const MapCanvas = ({
       const dy = cy - dragStart.cy;
 
       // Calculate angle
-      const yaw = Math.atan2(-dy, dx);
+      let yaw = Math.atan2(-dy, dx);
+      if (isHeadingUp && odom) {
+          // Adjust yaw for rotation
+          yaw -= (odom.yaw - Math.PI / 2);
+      }
       setGoalPreview({ ...goalPreview, yaw });
     }
   };
@@ -498,6 +567,23 @@ const MapCanvas = ({
         LIVE MAP
       </StatusOverlay>
       <ControlsOverlay>
+        <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <button 
+            onClick={() => setIsHeadingUp(!isHeadingUp)}
+            style={{ 
+              background: isHeadingUp ? '#3b82f6' : '#9ca3af',
+              color: 'white',
+              border: 'none',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '10px',
+              fontWeight: 'bold'
+            }}
+          >
+            {isHeadingUp ? 'ORIENTATION: HEADING UP' : 'ORIENTATION: NORTH UP'}
+          </button>
+        </div>
         LEFT CLICK: Set Goal<br />
         RIGHT CLICK: Pan Map<br />
         SCROLL: Zoom Map
